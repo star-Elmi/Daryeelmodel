@@ -1,12 +1,18 @@
 import pickle
 import torch
 from sentence_transformers import SentenceTransformer, util
-import openai
+from openai import OpenAI
+from dotenv import load_dotenv
 import os
 
-# 🔐 Set your API key in system or VS Code terminal first:
-# Windows:  set OPENROUTER_API_KEY=your_key_here
-# Linux/macOS:  export OPENROUTER_API_KEY=your_key_here
+# Load environment
+load_dotenv()
+
+# OpenRouter Moonshot client
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    base_url="https://openrouter.ai/api/v1"
+)
 
 # Load trained data
 with open("trained_data.pkl", "rb") as f:
@@ -16,16 +22,13 @@ questions = data["questions"]
 answers = data["answers"]
 embeddings = data["embeddings"]
 
-# Load sentence-transformers model
+# Load embedding model
 model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-
-# AI fallback key
-openai.api_key = os.getenv("OPENROUTER_API_KEY")
 
 def ask_ai_fallback(question):
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # or another model
+        response = client.chat.completions.create(
+            model="moonshotai/kimi-k2:free",  # ✅ Free Moonshot model
             messages=[{"role": "user", "content": question}]
         )
         return response.choices[0].message.content
@@ -50,4 +53,4 @@ while True:
     if user_input.lower() == "exit":
         break
     reply = get_answer(user_input)
-    print("🤖 Bot:", reply)
+    print(f"🤖 Bot: {reply}\n")
