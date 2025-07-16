@@ -1,0 +1,22 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+venv/
+.venv/
+
+# Environment config
+.env
+
+# Model/data files
+*.pkl
+*.png
+*.csv
+*.h5
+*.pt
+*.zip
+
+# Logs or outputs
+*.log
+*.out
