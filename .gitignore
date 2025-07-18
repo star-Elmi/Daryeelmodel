@@ -20,3 +20,10 @@ venv/
 # Logs or outputs
 *.log
 *.out
+
+# Jupyter notebooks
+*.ipynb
+.ipynb_checkpoints/
+
+# VSCode settings (if used)
+.vscode/
