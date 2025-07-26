@@ -1,4 +1,5 @@
 FROM python:3.11-slim
+networkx==3.5
 
 WORKDIR /app
 
