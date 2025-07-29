@@ -10,7 +10,7 @@ load_dotenv()
 
 # OpenRouter Moonshot client
 client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
+    api_key=os.getenv("sk-or-v1-59864c23a7f817b9fda7a102f30d4528e139a213dc4cc4cb7b161a17fbe7d42"),
     base_url="https://openrouter.ai/api/v1"
 )
 
