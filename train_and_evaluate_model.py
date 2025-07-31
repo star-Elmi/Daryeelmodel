@@ -41,7 +41,7 @@ for i, q in enumerate(questions):
     q_embed = model.encode(q, convert_to_tensor=True)
     scores = util.cos_sim(q_embed, embeddings)[0]
     best_match = torch.argmax(scores).item()
-    preds.append(labels[best_match])
+    preds.append(labels[best_match]) # type: ignore
 
 print("\n🎯 Classification Report:\n")
 print(classification_report(labels, preds))

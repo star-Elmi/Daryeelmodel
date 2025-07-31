@@ -1,56 +1,75 @@
-import pickle
-import torch
+# --- Step 1: Imports ---
+from flask import Flask, request, jsonify
 from sentence_transformers import SentenceTransformer, util
-from openai import OpenAI
-from dotenv import load_dotenv
-import os
+import pandas as pd
+import numpy as np
+import pickle
+import re
 
-# Load environment
-load_dotenv()
+# --- Step 2: Load Dataset & Model Once at Startup ---
+print("📦 Loading dataset...")
+df = pd.read_excel("full_dataset_cleaned_suaalo_jawaabo.xlsx")
 
-# OpenRouter Moonshot client
-client = OpenAI(
-    api_key=os.getenv("sk-or-v1-59864c23a7f817b9fda7a102f30d4528e139a213dc4cc4cb7b161a17fbe7d42"),
-    base_url="https://openrouter.ai/api/v1"
-)
+questions = df["Suaal"].astype(str).tolist()
+answers = df["Jawaab"].astype(str).tolist()
+labels = df["Label"].astype(str).tolist()
 
-# Load trained data
-with open("trained_data.pkl", "rb") as f:
-    data = pickle.load(f)
+print("🤖 Loading model...")
+model = SentenceTransformer("sentence-transformers/xlm-r-100langs-bert-base-nli-stsb-mean-tokens")
 
-questions = data["questions"]
-answers = data["answers"]
-embeddings = data["embeddings"]
+print("🔍 Embedding questions...")
+question_embeddings = model.encode(questioans)
 
-# Load embedding model
-model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
+# Build health-related vocabulary
+print("📚 Building vocabulary...")
+health_vocab = set()
+for q in questions:
+    tokens = re.findall(r'\b\w+\b', q.lower())
+    health_vocab.update(tokens)
+health_vocab = list(health_vocab)
 
-def ask_ai_fallback(question):
-    try:
-        response = client.chat.completions.create(
-            model="moonshotai/kimi-k2:free",  # ✅ Free Moonshot model
-            messages=[{"role": "user", "content": question}]
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"❌ AI Fallback Error: {e}"
+# --- Step 3: Flask App Setup ---
+app = Flask(__name__)
 
-def get_answer(user_question, threshold=0.65):
-    user_embedding = model.encode(user_question, convert_to_tensor=True)
-    cosine_scores = util.cos_sim(user_embedding, embeddings)[0]
-    top_result_idx = torch.argmax(cosine_scores).item()
-    top_score = cosine_scores[top_result_idx].item()
+# --- Step 4: Analyze Input Function ---
+def analyze_input(text, threshold=0.65):
+    symptoms = ["qandho", "wareer", "madax xanuun"]
+    if all(symptom in text.lower() for symptom in symptoms):
+        return "✅ Waxaa laga yaabaa inaad qabto xanuun la xiriira qandho, wareer iyo madax xanuun. La xiriir dhakhtar."
 
-    if top_score >= threshold:
-        return answers[top_result_idx] + f" (score: {top_score:.2f})"
-    else:
-        return ask_ai_fallback(user_question)
+    user_embed = model.encode(text)
+    scores = util.cos_sim(user_embed, question_embeddings)[0]
+    best_score = float(np.max(scores))
+    best_idx = int(np.argmax(scores))
 
-# Chat loop
-print("🤖 Chatbot ready! Type 'exit' to quit.\n")
-while True:
-    user_input = input("🧑 You: ")
-    if user_input.lower() == "exit":
-        break
-    reply = get_answer(user_input)
-    print(f"🤖 Bot: {reply}\n")
+    words = re.findall(r'\b\w+\b', text.lower())
+    if not words:
+        return "❌ Qoraalka lama fahmin."
+
+    health_related = sum(1 for w in words if w in health_vocab)
+    health_percent = (health_related / len(words)) * 100
+
+    if best_score < threshold:
+        return f"❌ Ma aha su’aal caafimaad la xiriirta (Sim score: {best_score:.2f})"
+
+    if health_percent < 40:
+        return f"⚠️ {health_percent:.1f}% qoraalkaagu caafimaad kuma filna."
+
+    return f"✅ Jawaab: {answers[best_idx]}\n(Label: {labels[best_idx]})"
+
+# --- Step 5: POST endpoint for chatbot ---
+@app.route('/chat', methods=['POST'])
+def chat():
+    data = request.get_json()
+    user_input = data.get("message", "")
+    
+    if not user_input:
+        return jsonify({"error": "Fadlan dir fariin qoraal ah."}), 400
+
+    response = analyze_input(user_input)
+    return jsonify({"response": response})
+
+# --- Step 6: Run App ---
+if __name__ == '__main__':
+    print("🚀 Starting Chatbot API on http://localhost:5000")
+    app.run(debug=True)
